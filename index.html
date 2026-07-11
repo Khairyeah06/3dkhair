@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warehouse Stock Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f9fafb;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        /* 3D Canvas Container */
+        #canvas-container {
+            width: 100%;
+            height: 60vh;
+            position: relative;
+            background-color: #f1f5f9;
+            border-bottom: 1px solid #e5e7eb;
+            cursor: grab;
+        }
+
+        #canvas-container:active {
+            cursor: grabbing;
+        }
+
+        /* CSS2D Label Styling */
+        .stock-label {
+            color: #1e293b;
+            font-size: 11px;
+            font-weight: 700;
+            pointer-events: none;
+            text-shadow: 1px 1px 0 #fff, -1px 1px 0 #fff, 1px -1px 0 #fff, -1px -1px 0 #fff;
+            margin-top: -15px;
+        }
+        
+        .pallet-label {
+            color: #ffffff;
+            background-color: rgba(15, 23, 42, 0.7);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            pointer-events: none;
+            margin-top: -20px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden text-slate-800">
+
+    <!-- Mock Sidebar -->
+    <aside class="hidden md:flex flex-col w-64 border-r border-slate-200 bg-white h-full shrink-0 z-20 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
+        <div class="p-4 border-b border-slate-200 flex items-center gap-3">
+            <div class="w-8 h-8 rounded bg-red-600 flex items-center justify-center text-white font-bold text-xs shadow-inner">BB</div>
+            <div>
+                <h1 class="font-bold text-sm text-slate-800">Boss Buddy</h1>
+                <p class="text-xs text-slate-500">Operation</p>
+            </div>
+        </div>
+        <div class="flex-1 overflow-y-auto custom-scroll py-4 text-sm font-medium">
+            <div class="px-4 text-xs text-slate-400 uppercase tracking-wider mb-2 mt-2">Warehouse</div>
+            <a href="#" class="flex items-center gap-3 px-4 py-2 text-slate-600 hover:bg-slate-50 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                Stock
+            </a>
+            <a href="#" class="flex items-center gap-3 px-4 py-2.5 bg-indigo-50/80 text-indigo-700 border-r-4 border-indigo-600 font-semibold transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                All Stock (Layout)
+            </a>
+            <a href="#" class="flex items-center gap-3 px-4 py-2 text-slate-600 hover:bg-slate-50 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                Stock Take
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col min-w-0 bg-white h-full relative">
+        <!-- Header -->
+        <header class="h-14 border-b border-slate-200 flex items-center justify-between px-4 lg:px-6 bg-white shrink-0 z-10">
+            <div class="flex items-center gap-2 text-sm">
+                <span class="text-slate-500 hover:text-slate-700 cursor-pointer transition-colors">Operation</span>
+                <span class="text-slate-300">/</span>
+                <span class="font-semibold text-slate-800">All Stock Overview</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <button class="px-4 py-1.5 text-xs font-semibold bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shadow-sm transition-all">
+                    Edit Layout
+                </button>
+            </div>
+        </header>
+
+        <!-- 3D Viewport -->
+        <div id="canvas-container" class="shrink-0 relative overflow-hidden">
+            <!-- Legend Overlay -->
+            <div class="absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-sm px-4 py-3 rounded-lg shadow-sm border border-slate-200/60 text-xs font-medium">
+                <div class="mb-2 text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Legend</div>
+                <div class="flex flex-col gap-2">
+                    <div class="flex items-center gap-2">
+                        <div class="w-3 h-3 rounded bg-[#dcb37b] border border-[#a67c52]"></div>
+                        <span class="text-slate-600">Palletized Stock (Good)</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-3 h-3 rounded bg-[#ef4444] border border-[#b91c1c]"></div>
+                        <span class="text-slate-600">Near Expiry / Alert</span>
+                    </div>
+                    <div class="flex items-center gap-2 mt-1 pt-1 border-t border-slate-100">
+                        <div class="w-3 h-3 rounded bg-[#16a34a] border border-[#14532d]"></div>
+                        <span class="text-slate-600">Finished Goods Block (Right)</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 text-xs text-slate-600 bg-white/90 backdrop-blur px-4 py-2 rounded-full shadow-sm border border-slate-200/50 flex items-center gap-2">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path></svg>
+                Drag to rotate, Scroll to zoom. Click any item for details.
+            </div>
+        </div>
+
+        <!-- Details Panel (Bottom) -->
+        <div class="flex-1 overflow-y-auto custom-scroll p-4 lg:p-6 bg-slate-50 relative">
+            <div class="max-w-7xl mx-auto">
+                <div class="flex flex-col sm:flex-row sm:justify-between sm:items-end mb-4 gap-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2" id="detail-title">
+                            Warehouse Stock Details
+                        </h2>
+                        <p class="text-sm text-slate-500 mt-1" id="detail-subtitle">Showing all inventory across pallet racks and finished goods zones.</p>
+                    </div>
+                    <div class="text-sm font-semibold text-slate-700 bg-white px-4 py-2 rounded-md shadow-sm border border-slate-200 flex items-center gap-2">
+                        Total Quantity: <span id="total-qty" class="text-indigo-600 text-lg">0</span>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm whitespace-nowrap">
+                            <thead class="bg-slate-50/80 border-b border-slate-200 text-slate-500">
+                                <tr>
+                                    <th class="px-5 py-3.5 font-semibold">Location</th>
+                                    <th class="px-5 py-3.5 font-semibold">Zone</th>
+                                    <th class="px-5 py-3.5 font-semibold">SKU & Product Details</th>
+                                    <th class="px-5 py-3.5 font-semibold">Status</th>
+                                    <th class="px-5 py-3.5 font-semibold text-right">Total Qty</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body" class="divide-y divide-slate-100">
+                                <!-- Data injected via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Three.js Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
+
+    <script>
+        // --- Data Generation ---
+        const generateFrontRackData = () => {
+            const data = [];
+            const levels = 3;
+            const positions = 8;
+            
+            for (let l = 1; l <= levels; l++) {
+                for (let p = 1; p <= positions; p++) {
+                    let sku, name, expiry, status, statusColor;
+                    
+                    if (l === 1) {
+                        name = "LekorBites Crab Stick Original V2 (40g)";
+                        sku = "CT-CO20CDD20";
+                        expiry = "2027-04-19";
+                        status = "Good";
+                        statusColor = "text-emerald-700 bg-emerald-50 border-emerald-200";
+                    } else if (l === 2) {
+                        name = "LekorBites Crispy Prawn Original V2 (40g)";
+                        sku = "CP-CO06CDE20";
+                        expiry = "2027-04-05";
+                        status = "Good";
+                        statusColor = "text-emerald-700 bg-emerald-50 border-emerald-200";
+                    } else {
+                        name = "LekorBites Fish Chip Original V2 (40g)";
+                        sku = "FC-CO29CGF09";
+                        if(p === 1 || p === 8) { // Randomize alerts
+                            expiry = "2026-08-15";
+                            status = "Near Expiry";
+                            statusColor = "text-rose-700 bg-rose-50 border-rose-200";
+                        } else {
+                            expiry = "2027-07-07";
+                            status = "Good";
+                            statusColor = "text-emerald-700 bg-emerald-50 border-emerald-200";
+                        }
+                    }
+
+                    const qty = 100 + Math.floor(Math.random() * 50); // Pallet quantities
+
+                    data.push({
+                        id: `FR-L${l}-P${p}`,
+                        label: `L${l}-${p}`,
+                        zone: 'Front Rack (Pallet)',
+                        level: l,
+                        position: p,
+                        name: name,
+                        sku: sku,
+                        expiry: expiry,
+                        qty: qty,
+                        status: status,
+                        statusColor: statusColor,
+                        type: 'pallet'
+                    });
+                }
+            }
+            return data;
+        };
+
+        const generateRightBlockData = () => {
+            const data = [];
+            const blockCount = 6;
+            const labels = ['RACK A', 'RACK B', 'RACK C', 'RACK D', 'RACK E', 'RACK F'];
+            
+            for (let i = 0; i < blockCount; i++) {
+                // Varying quantities to show different heights like the first image
+                const qty = 300 + Math.floor(Math.random() * 500); 
+                
+                data.push({
+                    id: `RB-${i+1}`,
+                    label: labels[i],
+                    zone: 'Right Zone (Blocks)',
+                    position: i,
+                    name: "Mixed Assorted Finished Goods",
+                    sku: "MIX-FG-00" + (i+1),
+                    expiry: "Mixed",
+                    qty: qty,
+                    status: "Good",
+                    statusColor: "text-emerald-700 bg-emerald-50 border-emerald-200",
+                    type: 'block',
+                    heightFactor: qty / 250 // Calculate height representation based on qty
+                });
+            }
+            return data;
+        };
+
+        const warehouseData = [...generateFrontRackData(), ...generateRightBlockData()];
+        let selectedLocationId = null;
+
+        // UI Update Function
+        const updateTable = (filterId = null) => {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+            
+            let filteredData = warehouseData;
+            if (filterId) {
+                filteredData = warehouseData.filter(item => item.id === filterId);
+                const item = filteredData[0];
+                document.getElementById('detail-title').innerHTML = `
+                    Location: <span class="text-indigo-600">${filterId}</span>
+                `;
+                document.getElementById('detail-subtitle').innerText = `Displaying details for ${item.zone}.`;
+            } else {
+                document.getElementById('detail-title').innerText = `Warehouse Stock Details`;
+                document.getElementById('detail-subtitle').innerText = `Showing all inventory across pallet racks and finished goods zones.`;
+            }
+
+            let total = 0;
+
+            filteredData.forEach(item => {
+                total += item.qty;
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-indigo-50/30 transition-colors group cursor-default';
+                
+                // Add left border highlight on hover
+                tr.innerHTML = `
+                    <td class="px-5 py-4 border-l-2 border-transparent group-hover:border-indigo-500">
+                        <div class="font-bold text-slate-800">${item.label}</div>
+                        <div class="text-[10px] text-slate-400 mt-0.5 font-mono">${item.id}</div>
+                    </td>
+                    <td class="px-5 py-4">
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-medium ${item.type === 'pallet' ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'}">
+                            ${item.zone}
+                        </span>
+                    </td>
+                    <td class="px-5 py-4">
+                        <div class="font-medium text-slate-800">${item.name}</div>
+                        <div class="text-xs text-slate-500 mt-1 flex items-center gap-2">
+                            <span class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">${item.sku}</span>
+                            <span>EXP: ${item.expiry}</span>
+                        </div>
+                    </td>
+                    <td class="px-5 py-4">
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold border shadow-sm ${item.statusColor}">
+                            ${item.status === 'Near Expiry' ? '<svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>' : ''}
+                            ${item.status}
+                        </span>
+                    </td>
+                    <td class="px-5 py-4 font-bold text-right text-slate-800 text-base">${item.qty.toLocaleString()}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Animate total counter (simple approach)
+            document.getElementById('total-qty').innerText = total.toLocaleString();
+        };
+
+        // Initialize Table
+        updateTable();
+
+        // --- Three.js Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color('#f8fafc'); // Soft light background
+        
+        // Add subtle fog for depth
+        scene.fog = new THREE.FogExp2('#f8fafc', 0.015);
+
+        // Camera setup to see both Front (Center) and Right structures
+        const camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 1000);
+        camera.position.set(0, 18, 26); 
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        const labelRenderer = new THREE.CSS2DRenderer();
+        labelRenderer.setSize(container.clientWidth, container.clientHeight);
+        labelRenderer.domElement.style.position = 'absolute';
+        labelRenderer.domElement.style.top = '0px';
+        labelRenderer.domElement.style.pointerEvents = 'none';
+        container.appendChild(labelRenderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxPolarAngle = Math.PI / 2 - 0.02; // Keep above floor
+        controls.target.set(3, 3, -3); // Center look at the reversed L inner corner
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+        dirLight.position.set(15, 25, 15);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        dirLight.shadow.camera.near = 0.5;
+        dirLight.shadow.camera.far = 100;
+        dirLight.shadow.camera.left = -20;
+        dirLight.shadow.camera.right = 20;
+        dirLight.shadow.camera.top = 20;
+        dirLight.shadow.camera.bottom = -20;
+        dirLight.shadow.bias = -0.001;
+        scene.add(dirLight);
+        
+        const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+        fillLight.position.set(-15, 10, -15);
+        scene.add(fillLight);
+
+        // Floor Plane
+        const planeGeo = new THREE.PlaneGeometry(60, 40);
+        const planeMat = new THREE.MeshStandardMaterial({ 
+            color: 0x94a3b8, // Concrete grey
+            roughness: 0.8,
+            metalness: 0.2
+        });
+        const plane = new THREE.Mesh(planeGeo, planeMat);
+        plane.rotation.x = -Math.PI / 2;
+        plane.receiveShadow = true;
+        scene.add(plane);
+
+        const interactableMeshes = [];
+        
+        // Common Materials
+        const rackBlueMat = new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.6, metalness: 0.5 }); // Factory Blue
+        const rackOrangeMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.6, metalness: 0.5 }); // Factory Orange
+        const palletWoodMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.9 }); // Brown wood
+        const cartonMat = new THREE.MeshStandardMaterial({ color: 0xdcb37b, roughness: 0.8 }); // Cardboard brown
+        const cartonAlertMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.8 }); // Alert Red
+        const greenBlockMat = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.4 }); // Bright green from user's image
+
+        // --- Build Front Rack (Factory Pallet Rack) ---
+        const frontRackGroup = new THREE.Group();
+        
+        const palletWidth = 1.2;
+        const palletDepth = 1.0;
+        const palletGap = 0.3; // Space between pallets
+        const bayWidth = palletWidth + palletGap; // 1.5
+        const totalPositions = 8;
+        
+        const levelHeight = 2.0; // Height between beams
+        
+        // Draw Upright Frames (Tiang Biru)
+        // We put an upright at the start, and every 2 pallets, and at the end
+        const rackStartX = -(totalPositions * bayWidth) / 2 + (bayWidth/2);
+        
+        for(let i = 0; i <= totalPositions; i+=2) {
+            const uprightGeo = new THREE.BoxGeometry(0.2, (3 * levelHeight) + 0.5, 1.2);
+            const upright = new THREE.Mesh(uprightGeo, rackBlueMat);
+            upright.position.set(rackStartX + i * bayWidth - (palletGap/2), ((3 * levelHeight) + 0.5)/2, 0);
+            upright.castShadow = true;
+            upright.receiveShadow = true;
+            frontRackGroup.add(upright);
+        }
+
+        // Draw Beams (Rasuk Oren) for Level 2 and 3 (Ground level pallets sit on floor)
+        const totalRackWidth = (totalPositions * bayWidth);
+        const beamGeo = new THREE.BoxGeometry(totalRackWidth, 0.15, 0.3);
+        
+        for(let l = 1; l < 3; l++) { // Level 1 is floor, l=1 is Level 2 beam, l=2 is Level 3 beam
+            // Front Beam
+            const beamF = new THREE.Mesh(beamGeo, rackOrangeMat);
+            beamF.position.set(0, l * levelHeight, 0.45);
+            beamF.castShadow = true;
+            frontRackGroup.add(beamF);
+            
+            // Back Beam
+            const beamB = new THREE.Mesh(beamGeo, rackOrangeMat);
+            beamB.position.set(0, l * levelHeight, -0.45);
+            beamB.castShadow = true;
+            frontRackGroup.add(beamB);
+        }
+
+        // Add Pallets and Cartons to Front Rack
+        const frontData = warehouseData.filter(d => d.type === 'pallet');
+        
+        frontData.forEach(data => {
+            const lIndex = data.level - 1; // 0 (Floor), 1 (Beam 1), 2 (Beam 2)
+            const pIndex = data.position - 1; // 0 to 7
+            
+            const px = rackStartX + pIndex * bayWidth;
+            const py = lIndex === 0 ? 0 : (lIndex * levelHeight) + 0.075; // 0.075 is half beam height
+            const pz = 0;
+
+            // Pallet Group to hold wood base + carton boxes
+            const palletGroup = new THREE.Group();
+            palletGroup.position.set(px, py, pz);
+            
+            // 1. Wood Pallet Base
+            const pBaseGeo = new THREE.BoxGeometry(palletWidth, 0.12, palletDepth);
+            const pBase = new THREE.Mesh(pBaseGeo, palletWoodMat);
+            pBase.position.y = 0.06;
+            pBase.castShadow = true;
+            pBase.receiveShadow = true;
+            palletGroup.add(pBase);
+
+            // 2. Stack of Cartons (2x2x2 to look like grouped stock)
+            const isAlert = data.status === "Near Expiry";
+            const baseBoxMat = isAlert ? cartonAlertMat : cartonMat;
+            const boxSize = 0.45;
+            const boxGap = 0.02;
+            
+            const boxesContainer = new THREE.Group();
+            
+            for(let x=0; x<2; x++) {
+                for(let y=0; y<2; y++) {
+                    for(let z=0; z<2; z++) {
+                        const boxGeo = new THREE.BoxGeometry(boxSize, boxSize, boxSize);
+                        const boxMesh = new THREE.Mesh(boxGeo, baseBoxMat);
+                        
+                        // Positioning relative to pallet center
+                        const bx = (x === 0 ? -1 : 1) * (boxSize/2 + boxGap/2);
+                        const by = 0.12 + (boxSize/2) + (y * (boxSize + boxGap));
+                        const bz = (z === 0 ? -1 : 1) * (boxSize/2 + boxGap/2);
+                        
+                        boxMesh.position.set(bx, by, bz);
+                        boxMesh.castShadow = true;
+                        boxMesh.receiveShadow = true;
+
+                        // Add faint edges for realism
+                        const edges = new THREE.LineSegments(
+                            new THREE.EdgesGeometry(boxGeo),
+                            new THREE.LineBasicMaterial({ color: isAlert ? 0x991b1b : 0x8c6239, linewidth: 1 })
+                        );
+                        boxMesh.add(edges);
+                        
+                        boxesContainer.add(boxMesh);
+                    }
+                }
+            }
+            palletGroup.add(boxesContainer);
+
+            // Invisible hit box for easier raycasting selection (covers pallet + boxes)
+            const hitBoxGeo = new THREE.BoxGeometry(palletWidth, 1.2, palletDepth);
+            const hitBoxMat = new THREE.MeshBasicMaterial({ visible: false });
+            const hitBox = new THREE.Mesh(hitBoxGeo, hitBoxMat);
+            hitBox.position.y = 0.6;
+            
+            // Store user data on hitBox for interaction
+            hitBox.userData = { 
+                ...data, 
+                visualGroup: boxesContainer, // Reference to change color on hover
+                originalMat: baseBoxMat,
+                hoverMat: new THREE.MeshStandardMaterial({ 
+                    color: isAlert ? 0xfca5a5 : 0xfde047, // Lighter red or yellow on hover
+                    roughness: 0.5 
+                }),
+                selectMat: new THREE.MeshStandardMaterial({ 
+                    color: 0x6366f1, // Indigo when selected
+                    roughness: 0.3 
+                })
+            };
+            
+            palletGroup.add(hitBox);
+            interactableMeshes.push(hitBox);
+
+            // Add CSS2D Label for pallet position
+            const labelDiv = document.createElement('div');
+            labelDiv.className = 'pallet-label';
+            labelDiv.textContent = data.label;
+            const cssLabel = new THREE.CSS2DObject(labelDiv);
+            cssLabel.position.set(0, 1.4, 0); 
+            palletGroup.add(cssLabel);
+
+            frontRackGroup.add(palletGroup);
+        });
+
+        // Position the front rack deeper to form the horizontal top bar of the reversed L
+        frontRackGroup.position.set(-2, 0, -8);
+        scene.add(frontRackGroup);
+
+        // --- Build Right Blocks (Like Original Image) ---
+        const rightBlockGroup = new THREE.Group();
+        const rightData = warehouseData.filter(d => d.type === 'block');
+        
+        const blockWidth = 1.8;
+        const blockDepth = 1.8;
+        const blockGap = 0.5;
+        
+        // Base plane for right zone
+        const zonePlaneGeo = new THREE.PlaneGeometry(16, 4);
+        const zonePlaneMat = new THREE.MeshLambertMaterial({ color: 0xe2e8f0 }); // Lighter grey base
+        const zonePlane = new THREE.Mesh(zonePlaneGeo, zonePlaneMat);
+        zonePlane.rotation.x = -Math.PI / 2;
+        zonePlane.position.set(0, 0.01, 0);
+        zonePlane.receiveShadow = true;
+        rightBlockGroup.add(zonePlane);
+
+        rightData.forEach((data, index) => {
+            const height = data.heightFactor;
+            const bGeo = new THREE.BoxGeometry(blockWidth, height, blockDepth);
+            const bMesh = new THREE.Mesh(bGeo, greenBlockMat);
+            
+            // Position blocks in a row
+            const bx = -((rightData.length * (blockWidth+blockGap))/2) + (index * (blockWidth+blockGap)) + blockWidth;
+            bMesh.position.set(bx, height/2, 0);
+            bMesh.castShadow = true;
+            bMesh.receiveShadow = true;
+
+            // Edges
+            const edges = new THREE.LineSegments(
+                new THREE.EdgesGeometry(bGeo),
+                new THREE.LineBasicMaterial({ color: 0x14532d })
+            );
+            bMesh.add(edges);
+
+            bMesh.userData = {
+                ...data,
+                originalMat: greenBlockMat,
+                hoverMat: new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.4 }),
+                selectMat: new THREE.MeshStandardMaterial({ color: 0x6366f1, roughness: 0.4 })
+            };
+            
+            interactableMeshes.push(bMesh);
+
+            // Label
+            const labelDiv = document.createElement('div');
+            labelDiv.className = 'stock-label';
+            labelDiv.textContent = data.label;
+            const cssLabel = new THREE.CSS2DObject(labelDiv);
+            cssLabel.position.set(0, height/2 + 0.3, 0); 
+            bMesh.add(cssLabel);
+
+            rightBlockGroup.add(bMesh);
+        });
+
+        // Position the right block group to the right side, rotated 90deg to form the vertical bar of the reversed L
+        rightBlockGroup.position.set(8, 0, -1);
+        rightBlockGroup.rotation.y = -Math.PI / 2; // Exact 90-degree corner
+        scene.add(rightBlockGroup);
+
+
+        // --- Interaction Logic ---
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let hoveredObj = null;
+        let selectedObjRef = null;
+
+        // Helper to apply material to target (handles single mesh or group of cartons)
+        const applyMaterial = (object, mat) => {
+            if (object.userData.type === 'pallet') {
+                // Apply to children inside visualGroup (the cartons)
+                object.userData.visualGroup.children.forEach(child => {
+                    if(child.isMesh) child.material = mat;
+                });
+            } else {
+                // Apply directly to block
+                object.material = mat;
+            }
+        };
+
+        const onMouseMove = (event) => {
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(interactableMeshes);
+
+            if (intersects.length > 0) {
+                document.body.style.cursor = 'pointer';
+                const object = intersects[0].object;
+                
+                if (hoveredObj !== object) {
+                    // Restore previous hover
+                    if (hoveredObj && hoveredObj !== selectedObjRef) {
+                        applyMaterial(hoveredObj, hoveredObj.userData.originalMat);
+                    }
+                    
+                    hoveredObj = object;
+                    // Apply hover
+                    if (hoveredObj !== selectedObjRef) {
+                        applyMaterial(hoveredObj, hoveredObj.userData.hoverMat);
+                    }
+                }
+            } else {
+                document.body.style.cursor = 'grab';
+                if (hoveredObj) {
+                    if (hoveredObj !== selectedObjRef) {
+                        applyMaterial(hoveredObj, hoveredObj.userData.originalMat);
+                    }
+                    hoveredObj = null;
+                }
+            }
+        };
+
+        const onClick = (event) => {
+            // Prevent click firing when dragging orbit controls
+            if(controls.getAzimuthalAngle) {
+               // Optional: robust drag detection can be added, but relying on simple click for now
+            }
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(interactableMeshes);
+
+            if (intersects.length > 0) {
+                const object = intersects[0].object;
+                
+                // Deselect previous
+                if (selectedObjRef) {
+                    applyMaterial(selectedObjRef, selectedObjRef.userData.originalMat);
+                }
+
+                if (selectedObjRef === object) {
+                    // Toggle off
+                    selectedObjRef = null;
+                    selectedLocationId = null;
+                    updateTable(null);
+                } else {
+                    // Select new
+                    selectedObjRef = object;
+                    selectedLocationId = object.userData.id;
+                    applyMaterial(selectedObjRef, selectedObjRef.userData.selectMat);
+                    updateTable(selectedLocationId);
+                }
+            } else {
+                // Click background
+                if (selectedObjRef) {
+                    applyMaterial(selectedObjRef, selectedObjRef.userData.originalMat);
+                    selectedObjRef = null;
+                    selectedLocationId = null;
+                    updateTable(null);
+                }
+            }
+        };
+
+        window.addEventListener('mousemove', onMouseMove, false);
+        container.addEventListener('click', onClick, false);
+
+        // Container mouse down/up for cursor styling
+        container.addEventListener('mousedown', () => document.body.style.cursor = 'grabbing');
+        container.addEventListener('mouseup', () => document.body.style.cursor = 'grab');
+        container.addEventListener('mouseleave', () => document.body.style.cursor = 'default');
+
+        // --- Window Resize ---
+        window.addEventListener('resize', () => {
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+            labelRenderer.setSize(width, height);
+        });
+
+        // --- Animation Loop ---
+        const animate = () => {
+            requestAnimationFrame(animate);
+            controls.update(); 
+            renderer.render(scene, camera);
+            labelRenderer.render(scene, camera);
+        };
+
+        animate();
+    </script>
+</body>
+</html>
